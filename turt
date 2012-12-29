@@ -1,0 +1,194 @@
+positionx, positiony, positionz = gps.locate(2)
+facing = 0
+
+function turnRightTrack()
+	turtle.turnRight()
+	facing = facing + 1
+	if facing >= 4 then
+		facing = 0
+	end
+end
+
+function turnLeftTrack()
+	turtle.turnLeft()
+	facing = facing - 1
+	if facing < 0 then
+		facing = 3
+	end
+end
+
+function safeForward()
+	success = false
+	while not success do
+		success = turtle.forward()
+		if not success then
+			print("Blocked attempting to move forward.")
+			print("Please clear and press enter to continue.")
+			io.read()
+		end
+	end
+end
+
+function safeBack()
+	success = false
+	while not success do
+		success = turtle.back()
+		if not success then
+			print("Blocked attempting to move back.")
+			print("Please clear and press enter to continue.")
+			io.read()
+		end
+	end
+end
+
+function safeUp()
+	success = false
+	while not success do
+		success = turtle.up()
+		if not success then
+			print("Blocked attempting to move up.")
+			print("Please clear and press enter to continue.")
+			io.read()
+		end
+	end
+end
+
+function safeDown()
+	success = false
+	while not success do
+		success = turtle.down()
+		if not success then
+			print("Blocked attempting to move down.")
+			print("Please clear and press enter to continue.")
+			io.read()
+		end
+	end
+end
+
+function moveY(targety)
+	if targety == positiony then
+		return
+	end
+
+	if (facing ~= 0 and facing ~= 2) then -- check axis
+		turnRightTrack()
+	end
+
+	while targety > positiony do
+		if facing == 0 then
+			safeForward()
+		else
+			safeBack()
+		end
+		positiony = positiony + 1
+	end
+
+	while targety < positiony do
+		if facing == 2 then
+			safeForward()
+		else
+			safeBack()
+		end
+		positiony = positiony - 1
+	end
+end
+
+function moveX(targetx)
+	if targetx == positionx then
+		return
+	end
+
+	if (facing ~= 1 and facing ~= 3) then -- check axis
+		turnRightTrack()
+	end
+
+	while targetx > positionx do
+		if facing == 1 then
+			safeForward()
+		else
+			safeBack()
+		end
+		positionx = positionx + 1
+	end
+
+	while targetx < positionx do
+		if facing == 3 then
+			safeForward()
+		else
+			safeBack()
+		end
+		positionx = positionx - 1
+	end
+end
+
+function moveZ(targetz)
+	if targetz == positionz then
+		return
+	end
+
+	while targetz > positionz do
+		safeUp()
+		positionz = positionz + 1
+	end
+
+	while targetz < positionz do
+		safeDown()
+		positionz = positionz - 1
+	end
+end
+
+function navigateTo(targetx, targety, targetz)
+	moveZ(targetz)
+
+	if facing == 0 or facing == 2 then -- Y axis
+		moveY(targety)
+		moveX(targetx)
+	else
+		moveX(targetx)
+		moveY(targety)
+	end
+end
+
+cslot = 1
+function placeBlock()
+	if turtle.getItemCount(cslot) == 0 then
+		foundSlot = false
+		while not foundSlot do
+			for i = 1,9 do
+				if turtle.getItemCount(i) > 0 then
+				foundSlot = i
+				break
+				end
+			end
+			if not foundSlot then
+				-- No resources
+				print("Out of building materials. Please refill and press enter to continue.")
+				io.read()
+			end
+		end
+		cslot = foundSlot
+		turtle.select(foundSlot)
+	end
+
+	turtle.placeDown()
+end
+
+
+
+function stringsplit(str, sep)
+	local sep, fields = sep or ":", {}
+	local pattern = string.format("([^%s]+)", sep)
+	string.gsub(str, pattern, function(c) fields[#fields+1] = c end)
+	return fields
+end
+
+rednet.open("right")
+while true do
+	sender, msg, distance = rednet.receive()
+	if(sender == 2) then
+		coords = stringsplit(msg, " ")
+		navigateTo(tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3]))
+		placeBlock()
+		rednet.send(2, "done")
+	end
+end

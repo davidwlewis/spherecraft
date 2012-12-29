@@ -1,0 +1,92 @@
+
+
+--Create the worker prototype
+
+Worker = {}
+Worker.sphere = spheretools.create(12, true)
+
+function Worker:new(id)
+	o = {id = id}
+	setmetatable(o, self)
+	self.__index = self
+	return o
+end
+
+function Worker:setQuadrant(q)
+	d = self.sphere.diameter - 1
+	r = math.floor(d / 2)
+	self.xOrient = 1
+	if(q == 1) then
+		self.xMin, self.xMax = 0, r
+		self.yMin, self.yMax = r, 0
+		self.yOrient = -1
+	elseif(q == 2) then
+		self.xMin, self.xMax = 0, r
+		self.yMin, self.yMax = r + 1, d
+		self.yOrient = 1
+	elseif(q == 3) then
+		self.xMin, self.xMax = r + 1, d
+		self.yMin, self.yMax = d, r + 1
+		self.yOrient = -1
+	elseif(q == 4) then
+		self.xMin, self.xMax = r + 1, d
+		self.yMin, self.yMax = 0, r
+		self.yOrient = 1
+	end
+end
+
+function Worker:start()
+	self.co = coroutine.create(
+	function()
+		for layer = 0, self.sphere.diameter - 1 do
+			for x = self.xMin, self.xMax, self.xOrient do
+				for y = self.yMin, self.yMax, self.yOrient do
+					val = self.sphere:get(x, y, layer)
+					if(1 == val) then
+						msg = x .. " " .. y .. " " .. layer
+						print("sending command: " .. msg .. " to turtle " .. self.id)
+						rednet.send(self.id, msg)
+						coroutine.yield()
+					end
+				end
+			end
+			self.xMin, self.xMax = self.xMax, self.xMin
+			self.yMin, self.yMax = self.yMax, self.yMin
+			self.xOrient = self.xOrient * -1
+			self.yOrient = self.yOrient * -1
+		end
+	end)
+	print("(Launching coroutine)")
+	coroutine.resume(self.co)
+end
+
+-- Open a network connection
+rednet.open("right")
+
+--Prompt for IDs for waiting turtles
+local workers = {}
+
+print("Enter the ID numbers of four turtle workers, separated by spaces: ")
+local q = 1
+for id in read():gmatch("%d+") do
+	id = tonumber(id)
+	print("Creating worker id: " .. id)
+	worker = Worker:new(id)
+	worker:setQuadrant(q)
+	q = q + 1
+	workers[id] = worker
+end
+
+
+for id, worker in pairs(workers) do
+	print("Starting worker " .. id)
+	worker:start()
+end
+
+while true do
+	
+	id, msg = rednet.receive()
+	if(msg == "done") then
+		coroutine.resume(workers[id].co)
+	end
+end

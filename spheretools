@@ -1,0 +1,75 @@
+local get, _get, FValue
+
+function get(self, x, y, z)
+	success, val = pcall(_get, self, x, y, z)
+	if(success) then
+		return val
+	else
+		return false
+	end
+end
+
+function _get(arr, x, y, z)
+  return arr[x][y][z]
+end
+
+function FValue(x, y, z, R)
+  return x*x + y*y + z*z - R*R;
+end
+
+
+create = function(diameter, verbose)
+	sphere = {}
+	sphere.get = get
+	sphere.diameter = diameter
+	sphere.radius = diameter/2;
+	sphere.mid = (diameter-1)/2;
+
+	if(verbose) then term.clear() end
+	
+	--Create full sphere
+	for x = 0, diameter - 1 do
+		sphere[x] = {}
+		for y = 0, diameter - 1 do
+			sphere[x][y] = {}
+			for z = 0, diameter - 1 do
+				if(FValue(x - sphere.mid, y - sphere.mid, z - sphere.mid, sphere.radius) <= 0) then
+					sphere[x][y][z] = 1
+				end
+			end
+		end
+		if(verbose) then
+			term.setCursorPos(1,1)
+			term.clearLine()
+			print("Processing z-level" .. x)
+		end
+		sleep(0)
+	end
+
+	-- Make sphere hollow
+	for x = 0, diameter - 1 do
+		for y = 0, diameter - 1 do
+			for z = 0, diameter - 1 do
+				if(sphere[x][y][z] ~= nil) then
+					if(sphere:get(x + 1, y, z) and
+						 sphere:get(x - 1, y, z) and
+						 sphere:get(x, y + 1, z) and
+						 sphere:get(x, y - 1, z) and
+						 sphere:get(x, y, z + 1) and
+						 sphere:get(x, y, z - 1)) then
+						sphere[x][y][z] = sphere[x][y][z] + 1
+					end
+				end
+			end
+		end
+		if(verbose) then
+			term.setCursorPos(1,2)
+			term.clearLine()
+			print("Hollowing z-level" .. x)
+		end
+		sleep(0)
+	end
+	
+	return sphere
+end
+
