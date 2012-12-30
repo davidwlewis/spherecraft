@@ -1,0 +1,181 @@
+local location
+local facing
+local oriented = false
+
+local deltas = {
+	[0] = {"y", 1},
+	[1] = {"x", 1},
+	[2] = {"y", -1},
+	[3] = {"x", -1}
+}
+
+local selectedSlot = 1
+
+function select(slot)
+	turtle.select(slot)
+	selectedSlot = slot
+end
+
+function placeBlock()
+	if turtle.getItemCount(selectedSlot) == 0 then
+		foundSlot = false
+		while not foundSlot do
+			for i = 1,9 do
+				if turtle.getItemCount(i) > 0 then
+				foundSlot = i
+				break
+				end
+			end
+			if not foundSlot then
+				-- No resources
+				print("Out of building materials. Please refill and press enter to continue.")
+				io.read()
+			end
+		end
+		select(foundSlot)
+	end
+
+	turtle.placeDown()
+end
+
+function orient()
+	location = vector.new(gps.locate(2, false))
+	forward()
+	offset = vector.new(gps.locate(2, false))
+	back()
+	delta = offset - location
+	
+	for k, v in pairs(deltas) do
+		if(delta[v[1]] == v[2]) then
+			facing = k
+			oriented = true
+		end
+	end
+	
+	if(not oriented) then
+		print("Failed to orient, ensure gps is functioning correctly.")
+	end
+end
+
+function isOriented()
+	return oriented
+end
+
+function turnRight()
+	turtle.turnRight()
+	facing = (facing + 1) % 4
+end
+
+function turnLeft()
+	turtle.turnLeft()
+	facing = (facing - 1) % 4
+end
+
+local function _safeMove(direction)
+	success = false
+	while not success do
+		success = turtle[direction]()
+		if not success then
+			print("Blocked attempting to move ".. direction ..".")
+			print("Please clear and press enter to continue.")
+			io.read()
+		end
+	end
+end
+
+function forward()
+	_safeMove("forward")
+	if oriented then
+		location[deltas[facing][1]] = location[deltas[facing][1]] + deltas[facing][2]
+	end
+end
+
+function back()
+	_safeMove("back")
+	if oriented then
+		location[deltas[facing][1]] = location[deltas[facing][1]] - deltas[facing][2]
+	end
+end
+
+function up()
+	_safeMove("up")
+	if oriented then
+		location.z = location.z + 1
+	end
+end
+
+function down()
+	_safeMove("down")
+	if oriented then
+		location.z = location.z - 1
+	end
+end
+
+function moveX(target)
+	if(not oriented) then print("Not Oriented, run sturtle.orient()") return end
+	if(location.x == target) then return end
+	
+	faceVal = (facing + ((target - location.x) / math.abs(target - location.x))) % 4
+	
+	move = forward
+	if(faceVal == 1) then
+		turnRight()
+	elseif(faceVal == 3) then
+		turnLeft()
+	elseif(faceVal == 0) then
+		move = back
+	end
+	
+	while(location.x ~= target) do
+		move()
+	end
+end
+
+function moveY(target)
+	if(not oriented) then print("Not Oriented, run sturtle.orient()") return end
+	if(location.y == target) then return end
+	
+	faceVal = (facing + ((target - location.y) / math.abs(target - location.y))) % 4
+	
+	move = forward
+	
+	if(faceVal == 0) then
+		turnRight()
+	elseif(faceVal == 2) then
+		turnLeft()
+	elseif(faceVal == 3) then
+		move = back
+	end
+	
+	while(location.y ~= target) do
+		move()
+	end
+end
+
+function moveZ(target)
+	if(not oriented) then print("Not Oriented, run sturtle.orient()") return end
+	if(location.z == target) then return end
+
+	if(target < location.z) then
+		move = down
+	else
+		move = up
+	end
+	
+	while(location.z ~= target) do
+		move()
+	end
+end
+
+function navigateTo(targetx, targety, targetz)
+	if(not oriented) then print("Not Oriented, run sturtle.orient()") return end
+	moveZ(targetz)
+
+	if(facing % 2 == 0) then
+		moveY(targety)
+		moveX(targetx)
+	else
+		moveX(targetx)
+		moveY(targety)
+	end
+end

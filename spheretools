@@ -1,6 +1,23 @@
-local get, _get, FValue
+local Sphere = {}
 
-function get(self, x, y, z)
+function Sphere:new(diameter)
+	o = {
+		diameter = diameter,
+		radius   = diameter/2,
+		mid      = (diameter-1)/2
+	}
+	setmetatable(o, self)
+	self.__index = self
+	return o
+end
+
+-- Safely access the sphere array with any index
+function Sphere:get(x, y, z)
+	-- wrap getter to protected-call it
+	function _get(arr, x, y, z)
+		return arr[x][y][z]
+	end
+	-- if there is no error, return val, otherwise false
 	success, val = pcall(_get, self, x, y, z)
 	if(success) then
 		return val
@@ -9,55 +26,52 @@ function get(self, x, y, z)
 	end
 end
 
-function _get(arr, x, y, z)
-  return arr[x][y][z]
+function Sphere:fVal(x, y, z, R)
+	return x*x + y*y + z*z - R*R;
 end
 
-function FValue(x, y, z, R)
-  return x*x + y*y + z*z - R*R;
+function Sphere:fValWeighted(x, y, z, R)
+	return self.xWeight * x*x + self.yWeight * y*y + self.zWeight * z*z - R*R;
 end
 
+function Sphere:contains(x, y, z)
+	return self:fVal(x - self.mid, y - self.mid, z - self.mid, self.radius) < 0
+end
 
-create = function(diameter, verbose)
-	sphere = {}
-	sphere.get = get
-	sphere.diameter = diameter
-	sphere.radius = diameter/2;
-	sphere.mid = (diameter-1)/2;
-
-	if(verbose) then term.clear() end
-	
-	--Create full sphere
-	for x = 0, diameter - 1 do
-		sphere[x] = {}
-		for y = 0, diameter - 1 do
-			sphere[x][y] = {}
-			for z = 0, diameter - 1 do
-				if(FValue(x - sphere.mid, y - sphere.mid, z - sphere.mid, sphere.radius) <= 0) then
-					sphere[x][y][z] = 1
+-- Set the sphere array to 1 for every block that is within the radius
+function Sphere:fill(verbose)
+	for x = 0, self.diameter - 1 do
+		self[x] = {}
+		for y = 0, self.diameter - 1 do
+			self[x][y] = {}
+			for z = 0, self.diameter - 1 do
+				if(self:contains(x, y, z)) then
+					self[x][y][z] = 1
 				end
 			end
 		end
 		if(verbose) then
 			term.setCursorPos(1,1)
 			term.clearLine()
-			print("Processing z-level" .. x)
+			print("Filling z-level" .. x)
 		end
 		sleep(0)
 	end
+end
 
-	-- Make sphere hollow
-	for x = 0, diameter - 1 do
-		for y = 0, diameter - 1 do
-			for z = 0, diameter - 1 do
-				if(sphere[x][y][z] ~= nil) then
-					if(sphere:get(x + 1, y, z) and
-						 sphere:get(x - 1, y, z) and
-						 sphere:get(x, y + 1, z) and
-						 sphere:get(x, y - 1, z) and
-						 sphere:get(x, y, z + 1) and
-						 sphere:get(x, y, z - 1)) then
-						sphere[x][y][z] = sphere[x][y][z] + 1
+-- Remove all blocks that are fully inside the sphere by setting their value to 2
+function Sphere:hollow(verbose)
+	for x = 0, self.diameter - 1 do
+		for y = 0, self.diameter - 1 do
+			for z = 0, self.diameter - 1 do
+				if(self[x][y][z] ~= nil) then
+					if(self:get(x + 1, y, z) and
+					   self:get(x - 1, y, z) and
+					   self:get(x, y + 1, z) and
+					   self:get(x, y - 1, z) and
+					   self:get(x, y, z + 1) and
+					   self:get(x, y, z - 1)) then
+						self[x][y][z] = self[x][y][z] + 1
 					end
 				end
 			end
@@ -69,6 +83,30 @@ create = function(diameter, verbose)
 		end
 		sleep(0)
 	end
+end
+
+create = function(diameter, verbose)
+	sphere = Sphere:new(diameter)
+	
+	if(verbose) then term.clear() end
+	
+	sphere:fill(verbose)
+	sphere:hollow(verbose)
+	
+	return sphere
+end
+
+createElliptic = function(diameter, xWeight, yWeight, zWeight, verbose)
+	sphere = Sphere:new(diameter)
+	sphere.xWeight = xWeight
+	sphere.yWeight = yWeight
+	sphere.zWeight = zWeight
+	sphere.fVal = sphere.fValWeighted
+
+	if(verbose) then term.clear() end
+	
+	sphere:fill(verbose)
+	sphere:hollow(verbose)
 	
 	return sphere
 end

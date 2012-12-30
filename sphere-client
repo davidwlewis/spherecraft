@@ -1,0 +1,15 @@
+command = 2
+
+rednet.open("right")
+sturtle.orient()
+
+while true do
+	sender, msg = rednet.receive()
+	if(sender == command) then
+		coords = {}
+		for match in msg:gmatch("%d+") do table.insert(coords, match) end
+		sturtle.navigateTo(tonumber(coords[1]), tonumber(coords[2]), tonumber(coords[3]))
+		sturtle.placeBlock()
+		rednet.send(command, "done")
+	end
+end

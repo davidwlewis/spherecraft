@@ -1,17 +1,16 @@
-
-
---Create the worker prototype
-
+-- Worker prototype
 Worker = {}
-Worker.sphere = spheretools.create(12, true)
 
-function Worker:new(id)
+-- Create a new worker
+function Worker:new(id, quadrant)
 	o = {id = id}
 	setmetatable(o, self)
 	self.__index = self
+	o:setQuadrant(quadrant)
 	return o
 end
 
+-- Set the quadrant the worker will build
 function Worker:setQuadrant(q)
 	d = self.sphere.diameter - 1
 	r = math.floor(d / 2)
@@ -35,6 +34,7 @@ function Worker:setQuadrant(q)
 	end
 end
 
+-- Start the worker building
 function Worker:start()
 	self.co = coroutine.create(
 	function()
@@ -56,9 +56,12 @@ function Worker:start()
 			self.yOrient = self.yOrient * -1
 		end
 	end)
-	print("(Launching coroutine)")
 	coroutine.resume(self.co)
 end
+
+
+--------MAIN--------
+Worker.sphere = spheretools.createElliptic(24, 1, 1, 2)
 
 -- Open a network connection
 rednet.open("right")
@@ -68,23 +71,20 @@ local workers = {}
 
 print("Enter the ID numbers of four turtle workers, separated by spaces: ")
 local q = 1
-for id in read():gmatch("%d+") do
-	id = tonumber(id)
+for match in read():gmatch("%d+") do
+	id = tonumber(match)
 	print("Creating worker id: " .. id)
-	worker = Worker:new(id)
-	worker:setQuadrant(q)
+	worker = Worker:new(id, q)
 	q = q + 1
 	workers[id] = worker
 end
 
 
 for id, worker in pairs(workers) do
-	print("Starting worker " .. id)
 	worker:start()
 end
 
 while true do
-	
 	id, msg = rednet.receive()
 	if(msg == "done") then
 		coroutine.resume(workers[id].co)
